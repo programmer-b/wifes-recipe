@@ -42,7 +42,37 @@ class RecipeRepository(
     }
     
     suspend fun getRecipeById(uri: String): Response<RecipeSearchResponse> {
-        return apiService.getRecipeById(uri = uri)
+        android.util.Log.d("RecipeRepository", "Calling API with URI: $uri")
+        val response = apiService.getRecipeById(uri = uri)
+        android.util.Log.d("RecipeRepository", "Response code: ${response.code()}, Body: ${response.body()}")
+        return response
+    }
+    
+    /**
+     * Attempts to fetch cooking instructions from the recipe URL
+     * This method returns instructions for recipes that don't have them
+     */
+    suspend fun getRecipeInstructions(recipe: Recipe): List<String> {
+        // If the recipe already has instructions, return them
+        if (recipe.instructionLines.isNotEmpty()) {
+            return recipe.instructionLines
+        }
+        
+        try {
+            // Try to fetch from the recipe URL
+            val sourceUrl = recipe.url
+            if (sourceUrl.isNotEmpty()) {
+                android.util.Log.d("RecipeRepository", "Fetching instructions from source: $sourceUrl")
+                val instructions = apiService.getRecipeInstructions(sourceUrl)
+                android.util.Log.d("RecipeRepository", "Fetched instructions: $instructions")
+                return instructions.instructions ?: listOf("Visit ${recipe.source} for full instructions.")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("RecipeRepository", "Error fetching instructions: ${e.message}")
+        }
+        
+        // Default message if no instructions are available
+        return listOf("Visit ${recipe.source} for full instructions at: ${recipe.url}")
     }
     
     // Local data sources using RecipeStorage

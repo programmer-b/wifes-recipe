@@ -11,6 +11,6 @@ sealed class NavDestinations(val route: String) {
     }
     
     data object CommunityRecipeDetail : NavDestinations("community_recipe_detail/{recipeId}") {
-        fun createRoute(recipeId: String) = "community_recipe_detail/$recipeId"
+        fun createRoute(recipeId: String) = "community_recipe_detail/community_$recipeId"
     }
 }

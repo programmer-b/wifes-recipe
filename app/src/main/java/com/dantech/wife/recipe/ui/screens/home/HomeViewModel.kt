@@ -29,10 +29,20 @@ class HomeViewModel(
     val savedRecipeIds: StateFlow<Set<String>> = _savedRecipeIds.asStateFlow()
     
     init {
-        loadFeaturedRecipes()
-        loadPopularRecipes()
-        loadQuickRecipes()
+        loadAllRecipes()
         collectSavedRecipes()
+    }
+    
+    // Function to refresh all recipes at once with delays to prevent rate limiting
+    fun loadAllRecipes() {
+        viewModelScope.launch {
+            loadFeaturedRecipes()
+            // Add a small delay between API calls to prevent rate limiting
+            kotlinx.coroutines.delay(300)
+            loadPopularRecipes()
+            kotlinx.coroutines.delay(300)
+            loadQuickRecipes()
+        }
     }
     
     fun loadFeaturedRecipes() {
@@ -40,15 +50,40 @@ class HomeViewModel(
             _featuredRecipes.value = Resource.loading()
             
             try {
+                // Use a simpler approach with fixed query and randomized offset
+                val randomOffset = (0..20).random()
+                
+                // Use predefined keywords rather than timestamps
+                val trendingKeywords = listOf(
+                    "trending", "popular recipes", "best dishes", 
+                    "favorite meals", "top recipes"
+                )
+                val query = trendingKeywords.random()
+                
                 val result = repository.searchRecipes(
-                    query = "trending",
-                    from = 0,
-                    to = 10
+                    query = query,
+                    from = randomOffset,
+                    to = randomOffset + 10
                 )
                 
                 if (result.isSuccessful && result.body() != null) {
                     val recipes = result.body()!!.hits.map { it.recipe }
-                    _featuredRecipes.value = Resource.success(recipes)
+                    if (recipes.isNotEmpty()) {
+                        _featuredRecipes.value = Resource.success(recipes)
+                    } else {
+                        // Fallback to a safe query if no results
+                        val fallbackResult = repository.searchRecipes(
+                            query = "dinner",
+                            from = 0,
+                            to = 10
+                        )
+                        if (fallbackResult.isSuccessful && fallbackResult.body() != null) {
+                            val fallbackRecipes = fallbackResult.body()!!.hits.map { it.recipe }
+                            _featuredRecipes.value = Resource.success(fallbackRecipes)
+                        } else {
+                            _featuredRecipes.value = Resource.error("No featured recipes found")
+                        }
+                    }
                 } else {
                     _featuredRecipes.value = Resource.error("Failed to load featured recipes: ${result.message()}")
                 }
@@ -67,15 +102,41 @@ class HomeViewModel(
             _popularRecipes.value = Resource.loading()
             
             try {
+                // Use a moderate random offset
+                val randomOffset = (0..15).random()
+                
+                // Use predefined popular cuisine types
+                val popularCuisines = listOf(
+                    "italian", "mexican", "chinese", "indian", 
+                    "japanese", "french", "mediterranean"
+                )
+                val cuisineType = popularCuisines.random()
+                
                 val result = repository.searchRecipes(
                     query = "popular",
-                    from = 0,
-                    to = 10
+                    from = randomOffset,
+                    to = randomOffset + 10,
+                    cuisineType = cuisineType
                 )
                 
                 if (result.isSuccessful && result.body() != null) {
                     val recipes = result.body()!!.hits.map { it.recipe }
-                    _popularRecipes.value = Resource.success(recipes)
+                    if (recipes.isNotEmpty()) {
+                        _popularRecipes.value = Resource.success(recipes)
+                    } else {
+                        // Fallback to a safe query if no results
+                        val fallbackResult = repository.searchRecipes(
+                            query = "pasta",
+                            from = 0,
+                            to = 10
+                        )
+                        if (fallbackResult.isSuccessful && fallbackResult.body() != null) {
+                            val fallbackRecipes = fallbackResult.body()!!.hits.map { it.recipe }
+                            _popularRecipes.value = Resource.success(fallbackRecipes)
+                        } else {
+                            _popularRecipes.value = Resource.error("No popular recipes found")
+                        }
+                    }
                 } else {
                     _popularRecipes.value = Resource.error("Failed to load popular recipes: ${result.message()}")
                 }
@@ -94,16 +155,39 @@ class HomeViewModel(
             _quickRecipes.value = Resource.loading()
             
             try {
+                // Use a small random offset
+                val randomOffset = (0..10).random()
+                
+                // Randomize the meal type for more variety
+                val mealTypes = listOf("lunch", "dinner", "breakfast", "snack")
+                val randomMealType = mealTypes.random()
+                
+                // Use fixed query for quick recipes
                 val result = repository.searchRecipes(
-                    query = "quick",
-                    from = 0,
-                    to = 10,
-                    mealType = "lunch" // Quick lunch recipes
+                    query = "quick easy " + randomMealType,
+                    from = randomOffset,
+                    to = randomOffset + 10,
+                    mealType = randomMealType
                 )
                 
                 if (result.isSuccessful && result.body() != null) {
                     val recipes = result.body()!!.hits.map { it.recipe }
-                    _quickRecipes.value = Resource.success(recipes)
+                    if (recipes.isNotEmpty()) {
+                        _quickRecipes.value = Resource.success(recipes)
+                    } else {
+                        // Fallback to a safe query if no results
+                        val fallbackResult = repository.searchRecipes(
+                            query = "salad quick",
+                            from = 0,
+                            to = 10
+                        )
+                        if (fallbackResult.isSuccessful && fallbackResult.body() != null) {
+                            val fallbackRecipes = fallbackResult.body()!!.hits.map { it.recipe }
+                            _quickRecipes.value = Resource.success(fallbackRecipes)
+                        } else {
+                            _quickRecipes.value = Resource.error("No quick recipes found")
+                        }
+                    }
                 } else {
                     _quickRecipes.value = Resource.error("Failed to load quick recipes: ${result.message()}")
                 }

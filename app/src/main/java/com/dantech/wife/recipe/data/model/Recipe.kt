@@ -22,6 +22,7 @@ data class Recipe(
     val uri: String = "",
     val label: String = "",
     val image: String = "",
+    val images: Map<String, ImageInfo> = emptyMap(),
     val source: String = "",
     val url: String = "",
     val yield: Double = 0.0,
@@ -36,12 +37,35 @@ data class Recipe(
     val mealType: List<String> = emptyList(),
     val dishType: List<String> = emptyList(),
     val totalNutrients: Map<String, Nutrient> = emptyMap(),
+    val totalDaily: Map<String, Nutrient> = emptyMap(),
     val instructionLines: List<String> = emptyList(),
+    val summary: String = "",
+    val tags: List<String> = emptyList(),
+    val digest: List<NutrientInfo> = emptyList(),
     val isFavorite: Boolean = false
 ) {
     val recipeId: String
         get() = uri.split("#").last()
 }
+
+@Serializable
+data class ImageInfo(
+    val url: String = "",
+    val width: Int = 0,
+    val height: Int = 0
+)
+
+@Serializable
+data class NutrientInfo(
+    val label: String = "",
+    val tag: String = "",
+    val schemaOrgTag: String? = null,
+    val total: Double = 0.0,
+    val hasRDI: Boolean = false,
+    val daily: Double = 0.0,
+    val unit: String = "",
+    val sub: List<NutrientInfo>? = null
+)
 
 @Serializable
 data class Ingredient(

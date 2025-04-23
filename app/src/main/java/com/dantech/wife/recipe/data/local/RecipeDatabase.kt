@@ -8,6 +8,7 @@ import com.dantech.wife.recipe.data.model.Recipe
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentHashMap
 
@@ -108,11 +109,8 @@ class RecipeStorage(private val context: Context) {
     }
     
     private suspend fun loadRecipesFromPreferences(): List<SavedRecipeEntity> {
-        var json = "[]"
-        context.recipeDataStore.data.collect { preferences ->
-            json = preferences[PreferencesKeys.SAVED_RECIPES] ?: "[]"
-            return@collect
-        }
+        val preferences = context.recipeDataStore.data.first()
+        val json = preferences[PreferencesKeys.SAVED_RECIPES] ?: "[]"
         
         val type = object : TypeToken<List<SavedRecipeEntity>>() {}.type
         return gson.fromJson(json, type)

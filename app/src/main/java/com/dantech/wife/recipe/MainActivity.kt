@@ -74,16 +74,33 @@ fun RecipeApp(
     val recipeDetailViewModel = viewModel { RecipeDetailViewModel(recipeRepository, communityRepository, userPreferences) }
     val communityViewModel = viewModel { CommunityViewModel(communityRepository, userPreferences) }
     
-    // Handle system back button press
+    // Handle system back button press - modify to always exit if on a top-level destination
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, navController) {
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (navController.previousBackStackEntry != null) {
-                    navController.navigateUp()
+                // Check if we're on a top-level destination
+                val isOnMainDestination = currentRoute == NavDestinations.Home.route ||
+                        currentRoute == NavDestinations.Search.route ||
+                        currentRoute == NavDestinations.Saved.route ||
+                        currentRoute == NavDestinations.Community.route
+                
+                if (isOnMainDestination) {
+                    // If on a main tab, either navigate to Home or exit the app
+                    if (currentRoute != NavDestinations.Home.route) {
+                        // Navigate to home
+                        navController.navigate(NavDestinations.Home.route) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } else {
+                        // On Home tab, exit the app
+                        this.isEnabled = false
+                        backPressedDispatcher.onBackPressed()
+                    }
                 } else {
-                    this.isEnabled = false
-                    backPressedDispatcher.onBackPressed()
+                    // Otherwise, regular back behavior
+                    navController.navigateUp()
                 }
             }
         }
@@ -105,16 +122,14 @@ fun RecipeApp(
                 RecipeBottomNavigation(
                     currentRoute = currentRoute,
                     onNavigate = { route ->
+                        // Always clear the back stack when navigating to a root destination
+                        // Use a different approach that doesn't use the current route or saveState
+                        // which could be causing the navigation loop
                         navController.navigate(route) {
-                            // Pop up to the start destination of the graph to
-                            // avoid building up a large stack of destinations
-                            popUpTo(NavDestinations.Home.route) {
-                                saveState = true
-                            }
+                            // Clear the entire back stack
+                            popUpTo(0) { inclusive = true }
                             // Avoid multiple copies of the same destination
                             launchSingleTop = true
-                            // Restore state when navigating back
-                            restoreState = true
                         }
                     }
                 )

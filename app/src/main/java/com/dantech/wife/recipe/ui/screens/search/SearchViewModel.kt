@@ -35,6 +35,10 @@ class SearchViewModel(
     private val _selectedFilters = MutableStateFlow<Map<FilterType, String>>(emptyMap())
     val selectedFilters: StateFlow<Map<FilterType, String>> = _selectedFilters.asStateFlow()
     
+    // Flag to track if a search has been performed by the user
+    private val _hasPerformedSearch = MutableStateFlow(false)
+    val hasPerformedSearch: StateFlow<Boolean> = _hasPerformedSearch.asStateFlow()
+    
     init {
         collectSearchHistory()
         collectSavedRecipes()
@@ -42,11 +46,18 @@ class SearchViewModel(
     
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+        // If query is cleared, reset the hasPerformedSearch flag
+        if (query.isBlank()) {
+            _hasPerformedSearch.value = false
+        }
     }
     
     fun search(query: String) {
         val trimmedQuery = query.trim()
         if (trimmedQuery.isEmpty()) return
+        
+        // Mark that user has performed a search
+        _hasPerformedSearch.value = true
         
         viewModelScope.launch {
             _searchResults.value = Resource.loading()

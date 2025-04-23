@@ -73,7 +73,10 @@ fun SearchScreen(
             is Resource.Success -> {
                 val recipes = (searchResults as Resource.Success).data
                 
-                if (recipes.isEmpty() && searchQuery.isNotBlank()) {
+                // Check if this is an actual search result (after user action) rather than initial state
+                val hasPerformedSearch = viewModel.hasPerformedSearch.collectAsState().value
+                
+                if (recipes.isEmpty() && searchQuery.isNotBlank() && hasPerformedSearch) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize()
@@ -84,7 +87,7 @@ fun SearchScreen(
                             textAlign = TextAlign.Center
                         )
                     }
-                } else if (recipes.isEmpty() && searchQuery.isBlank()) {
+                } else if (recipes.isEmpty() && (!hasPerformedSearch || searchQuery.isBlank())) {
                     // Show search history
                     Column(
                         modifier = Modifier

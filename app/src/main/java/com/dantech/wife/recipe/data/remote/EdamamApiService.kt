@@ -2,6 +2,7 @@ package com.dantech.wife.recipe.data.remote
 
 import com.dantech.wife.recipe.BuildConfig
 import com.dantech.wife.recipe.data.model.RecipeSearchResponse
+import kotlinx.serialization.Serializable
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
@@ -10,6 +11,13 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
+
+@Serializable
+data class RecipeInstructions(
+    val url: String? = null,
+    val instructions: List<String>? = null,
+    val error: String? = null
+)
 
 interface EdamamApiService {
     
@@ -30,13 +38,31 @@ interface EdamamApiService {
         @Query("time") time: String? = null
     ): Response<RecipeSearchResponse>
     
-    @GET("api/recipes/v2")
+    @GET("api/recipes/v2/by-uri")
     suspend fun getRecipeById(
         @Query("type") type: String = "public",
         @Query("app_id") appId: String = BuildConfig.EDAMAM_APP_ID,
         @Query("app_key") appKey: String = BuildConfig.EDAMAM_APP_KEY,
-        @Query("uri") uri: String
+        @Query("uri") uri: String,
+        @Query("field") fields: List<String> = listOf(
+            "uri", "label", "image", "images", "source", "url", "yield", 
+            "dietLabels", "healthLabels", "cautions", "ingredientLines", 
+            "ingredients", "calories", "totalTime", "cuisineType", 
+            "mealType", "dishType", "totalNutrients", "totalDaily", 
+            "instructionLines", "summary", "tags", "digest"
+        )
     ): Response<RecipeSearchResponse>
+    
+    /**
+     * Get recipe instructions from the source URL
+     * This endpoint extracts instructions from recipe websites
+     */
+    @GET("api/recipes/v2/extract-instructions")
+    suspend fun getRecipeInstructions(
+        @Query("url") url: String,
+        @Query("app_id") appId: String = BuildConfig.EDAMAM_APP_ID,
+        @Query("app_key") appKey: String = BuildConfig.EDAMAM_APP_KEY
+    ): RecipeInstructions
     
     companion object {
         fun create(): EdamamApiService {

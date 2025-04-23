@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.dantech.wife.recipe.ui.components.ErrorScreen
 import com.dantech.wife.recipe.ui.components.LoadingScreen
 import com.dantech.wife.recipe.utils.Resource
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +58,20 @@ fun RecipeDetailScreen(
     val recipeState by viewModel.recipe.collectAsState()
     val isRecipeSaved by viewModel.isRecipeSaved.collectAsState()
     val isFavorite by viewModel.isRecipeFavorite.collectAsState()
+    val shareComplete by viewModel.shareComplete.collectAsState()
+    val instructions by viewModel.cookingInstructions.collectAsState()
     
     // Load the recipe when the screen is displayed
     androidx.compose.runtime.LaunchedEffect(recipeId) {
         viewModel.loadRecipe(recipeId)
+    }
+    
+    // Handle share completion
+    androidx.compose.runtime.LaunchedEffect(shareComplete) {
+        if (shareComplete) {
+            viewModel.resetShareState()
+            onShareRecipe()
+        }
     }
     
     Scaffold(
@@ -107,7 +118,7 @@ fun RecipeDetailScreen(
                 onClick = {
                     if (recipeState is Resource.Success) {
                         viewModel.shareRecipe()
-                        onShareRecipe()
+                        // Navigation is now handled by LaunchedEffect
                     }
                 }
             ) {
@@ -156,31 +167,115 @@ fun RecipeDetailScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // Source information
+                            Text(
+                                text = "By ${recipe.source}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Summary if available
+                            if (recipe.summary.isNotEmpty()) {
+                                Text(
+                                    text = recipe.summary,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 InfoCard(title = "Calories", value = "${recipe.calories.toInt()}")
-                                InfoCard(title = "Time", value = "${recipe.totalTime.toInt()} min")
+                                InfoCard(title = "Time", value = if (recipe.totalTime > 0) "${recipe.totalTime.toInt()} min" else "N/A")
                                 InfoCard(title = "Servings", value = recipe.yield.toInt().toString())
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
-                            // Health Labels
+                            // Meal and Dish Type
+                            if (recipe.mealType.isNotEmpty() || recipe.dishType.isNotEmpty() || recipe.cuisineType.isNotEmpty()) {
+                                Card(
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        if (recipe.mealType.isNotEmpty()) {
+                                            Text(
+                                                text = "Meal Type: ${recipe.mealType.joinToString(", ")}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.padding(bottom = 4.dp)
+                                            )
+                                        }
+                                        
+                                        if (recipe.dishType.isNotEmpty()) {
+                                            Text(
+                                                text = "Dish Type: ${recipe.dishType.joinToString(", ")}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.padding(bottom = 4.dp)
+                                            )
+                                        }
+                                        
+                                        if (recipe.cuisineType.isNotEmpty()) {
+                                            Text(
+                                                text = "Cuisine: ${recipe.cuisineType.joinToString(", ")}",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+                            
+                            // Diet & Health Labels
+                            if (recipe.dietLabels.isNotEmpty()) {
+                                Text(
+                                    text = "Diet Labels",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                Text(
+                                    text = recipe.dietLabels.joinToString(", "),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
+                            
                             Text(
                                 text = "Health Labels",
                                 style = MaterialTheme.typography.titleLarge
                             )
                             
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             
                             Text(
                                 text = recipe.healthLabels.joinToString(", "),
                                 style = MaterialTheme.typography.bodyMedium
                             )
+                            
+                            if (recipe.cautions.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                Text(
+                                    text = "Cautions",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                Text(
+                                    text = recipe.cautions.joinToString(", "),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
@@ -200,7 +295,106 @@ fun RecipeDetailScreen(
                                 )
                             }
                             
+                            // Instructions
                             Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Text(
+                                text = "Instructions",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            if (instructions.isNotEmpty()) {
+                                instructions.forEachIndexed { index, instruction ->
+                                    // Check if the instruction contains a URL reference
+                                    if (instruction.contains("Visit") && (instruction.contains("http") || instruction.contains("www"))) {
+                                        val context = androidx.compose.ui.platform.LocalContext.current
+                                        androidx.compose.foundation.text.ClickableText(
+                                            text = androidx.compose.ui.text.buildAnnotatedString {
+                                                append("${index + 1}. $instruction")
+                                                addStyle(
+                                                    style = androidx.compose.ui.text.SpanStyle(
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                                                    ),
+                                                    start = 0,
+                                                    end = instruction.length + 3 // +3 for the number prefix
+                                                )
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                            onClick = { 
+                                                // Open website
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(recipe.url))
+                                                context.startActivity(intent)
+                                            }
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "${index + 1}. $instruction",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = "Loading cooking instructions...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+                            
+                            // Nutrition information
+                            if (recipe.digest.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Text(
+                                    text = "Nutrition Facts",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                // Display main macronutrients
+                                recipe.digest.take(3).forEach { nutrient ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = nutrient.label,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "${nutrient.total.toInt()}${nutrient.unit} (${nutrient.daily.toInt()}% DV)",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Tags if available
+                            if (recipe.tags.isNotEmpty()) {
+                                Text(
+                                    text = "Tags",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                Text(
+                                    text = recipe.tags.joinToString(", "),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
                             
                             // View Full Recipe Button
                             if (recipe.url.isNotEmpty()) {
@@ -208,12 +402,20 @@ fun RecipeDetailScreen(
                                 
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
-                                Text(
-                                    text = "View full recipe and instructions on the source website",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                androidx.compose.material3.Button(
+                                    onClick = {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                            recipe.url.toUri())
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    Text(
+                                        text = "Visit ${recipe.source} for Complete Recipe",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                                 
                                 Spacer(modifier = Modifier.height(32.dp))
                             }
@@ -222,7 +424,7 @@ fun RecipeDetailScreen(
                 }
                 is Resource.Error -> {
                     ErrorScreen(
-                        message = (recipeState as Resource.Error).message ?: "Unknown error",
+                        message = (recipeState as Resource.Error).message,
                         onRetry = { viewModel.loadRecipe(recipeId) }
                     )
                 }
